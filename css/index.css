@@ -1,0 +1,24 @@
+body {
+}
+
+h1 {
+  text-align: center;
+}
+p {
+  text-align: center;
+}
+
+midi-input {
+  width: 100%;
+  text-align: center;
+}
+
+sound-box {
+  width: 100%;
+  text-align: center;
+}
+
+browser-support {
+  width: 100%;
+  text-align: center;
+}
