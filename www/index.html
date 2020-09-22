@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="">
+
+<head>
+  <meta charset="utf-8">
+  <title>Tabarnotte</title>
+  <meta name="description" content="Play a midi instrument in the browser">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.css">
+  <link rel="stylesheet" href="/css/index.css">
+</head>
+
+<body>
+  <h1>Play a midi instrument in the browser</h1>
+  <p>Plug in a midi instrument, and this page will play sinewaves of the notes</p>
+  <browser-support></browser-support>
+  <script type="module" src="/js/browser-support.js"></script>
+  <midi-input></midi-input>
+  <script type="module" src="/js/midi-input.js"></script>
+  <sound-box></sound-box>
+  <script type="module" src="/js/sound-box.js"></script>
+  <script src="/js/adapter.js"></script>
+  <script src="/js/datachannel.js"></script>
+  <div class="controlbox">
+    <button id="connectButton" name="connectButton" class="buttonleft">
+      Connect
+    </button>
+    <button id="disconnectButton" name="disconnectButton" class="buttonright" disabled>
+      Disconnect
+    </button>
+  </div>
+
+  <div class="messagebox">
+    <label for="message">Enter a message:
+      <input type="text" name="message" id="message" placeholder="Message text" 
+              inputmode="latin" size=60 maxlength=120 disabled>
+    </label>
+    <button id="sendButton" name="sendButton" class="buttonright" disabled>
+      Send
+    </button>
+  </div>
+  <div class="messagebox" id="receivebox">
+    <p>Messages received:</p>
+  </div>
+</body>
+
+</html>
+
+<div id="content"></div>
+
+<script type="text/javascript">
+    var content = document.getElementById('content');
+    var socket = new WebSocket('ws://localhost:8080');
+    socket.onopen = function () {
+        socket.send('hello from the client');
+    };
+
+    socket.onmessage = function (message) {
+        content.innerHTML += message.data +'<br />';
+    };
+
+    socket.onerror = function (error) {
+        console.log('WebSocket error: ' + error);
+    };
+</script>
+

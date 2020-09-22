@@ -1,0 +1,8 @@
+{
+  "name": "websocket",
+  "version": "1.0.0",
+  "description": "A simple websocket server.",
+  "dependencies": {
+    "websocket": "^1.0.32"
+  }
+}
