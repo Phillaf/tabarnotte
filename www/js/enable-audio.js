@@ -1,4 +1,4 @@
-class BrowserSupport extends HTMLElement {
+class EnableAudio extends HTMLElement {
 
   constructor() {
     super();
@@ -48,5 +48,5 @@ style.innerHTML = `
     }
   </style>`;
 
-customElements.define('browser-support', BrowserSupport);
-export {BrowserSupport};
+customElements.define('enable-audio', EnableAudio);
+export {EnableAudio};

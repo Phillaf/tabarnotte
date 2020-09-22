@@ -10,6 +10,8 @@ class SoundBox extends HTMLElement {
     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     window.addEventListener("note-on", this.noteOn, false);
     window.addEventListener("note-off", this.noteOff, false);
+    window.addEventListener("rtc-note-on", this.noteOn, false);
+    window.addEventListener("rtc-note-off", this.noteOff, false);
   }
 
   noteOn = (event) => {
@@ -20,15 +22,11 @@ class SoundBox extends HTMLElement {
     osc.frequency.value = Math.pow(2, (note - 69) / 12) * 440;
     osc.connect(this.audioContext.destination);
     osc.start();
-
-    console.log(`note on: ${event.detail.note}, velocity ${event.detail.velocity}`);
   }
 
   noteOff = (event) => {
     this.oscilliators[event.detail.note].stop();
     this.oscilliators[event.detail.note] = null;
-
-    console.log(`note off: ${event.detail.note}`);
   }
 }
 
