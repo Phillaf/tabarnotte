@@ -29,7 +29,9 @@ socket.on('request', (request) => {
     console.log(message.utf8Data);
     if (message.utf8Data != 'init') {
       connections.forEach((destination) => {
-        destination.sendUTF(message.utf8Data);
+        if (destination !== connection) {
+          destination.sendUTF(message.utf8Data);
+        }
       })
     }
   });

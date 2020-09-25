@@ -24,8 +24,13 @@ socket.onmessage = function (message) {
       createPeerConnection(isInitiator);
       break;
     default:
-      console.log(`message: ${message.data}`);
-      signalingMessageCallback(message)
+      try {
+        parsed = JSON.parse(message.data);
+      } catch(e) {
+        console.log("exception parsing message");
+        console.log(message.data);
+      }
+      signalingMessageCallback(parsed)
       break;
   }
 
@@ -39,19 +44,18 @@ var peerConn;
 var dataChannel;
 
 signalingMessageCallback = (message) => {
-  console.log(message);
   if (message.type === 'offer') {
     console.log('Got offer. Sending answer to peer.');
-    peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {},
-                                  logError);
+    peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {}, logError);
     peerConn.createAnswer(onLocalSessionCreated, logError);
 
   } else if (message.type === 'answer') {
     console.log('Got answer.');
-    peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {},
-                                  logError);
+    peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {}, logError);
 
   } else if (message.type === 'candidate') {
+    console.log('Got Ice Candidate');
+    console.log(message);
     peerConn.addIceCandidate(new RTCIceCandidate({
       candidate: message.candidate
     }));
@@ -63,8 +67,7 @@ createPeerConnection = (isInitiator) => {
   console.log(`Creating Peer connection as initiator? ${isInitiator}`);
   peerConn = new RTCPeerConnection();
   peerConn.onicecandidate = (event) => {
-    console.log(`icecandidate event: ${event}`);
-    console.log(event);
+    console.log(event.candidate);
     if (event.candidate) {
       sendMessage({
         type: 'candidate',
@@ -117,7 +120,7 @@ onLocalSessionCreated = (desc) => {
 
 function sendMessage(message) {
   console.log('Client sending message: ', message);
-  socket.send(message);
+  socket.send(JSON.stringify(message));
 }
 
 logError = (err) => {
