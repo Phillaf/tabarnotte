@@ -1,4 +1,3 @@
-
 var content = document.getElementById('content');
 var socket = new WebSocket('ws://localhost:8080');
 
@@ -57,7 +56,9 @@ signalingMessageCallback = (message) => {
     console.log('Got Ice Candidate');
     console.log(message);
     peerConn.addIceCandidate(new RTCIceCandidate({
-      candidate: message.candidate
+      sdpMLindIndex: message.sdpMLindIndex,
+      sdpMid: message.sdpMid,
+      candidate: message.candidate,
     }));
 
   }
@@ -72,7 +73,8 @@ createPeerConnection = (isInitiator) => {
       sendMessage({
         type: 'candidate',
         label: event.candidate.sdpMLindIndex,
-        id: event.candidate.sdpMid,
+        sdpMLindIndex: event.candidate.sdpMLindIndex,
+        sdpMid: event.candidate.sdpMid,
         candidate: event.candidate.candidate
       });
     } else {
