@@ -1,135 +1,165 @@
-var content = document.getElementById('content');
-var socket = new WebSocket('ws://localhost:8080');
+class SignalingServer {
 
-var isInitiator;
+  constructor(onJoin, onReady, onSignal){
+    this.socket = new WebSocket('ws://localhost:8080');
+    this.socket.onopen = this.onOpen;
+    this.socket.onmessage = this.onMessage;
+    this.socket.onerror = this.onError;
 
-socket.onopen = function () {
-  socket.send('init');
-};
-
-socket.onmessage = function (message) {
-
-  switch (message.data) {
-    case 'created':
-      console.log('I created the room');
-      isInitiator = true;
-      break;
-    case 'joined':
-      isInitiator = false;
-      createPeerConnection(isInitiator);
-      console.log('I joined the room');
-      break;
-    case 'ready':
-      createPeerConnection(isInitiator);
-      break;
-    default:
-      try {
-        parsed = JSON.parse(message.data);
-      } catch(e) {
-        console.log("exception parsing message");
-        console.log(message.data);
-      }
-      signalingMessageCallback(parsed)
-      break;
+    this.onJoin = onJoin;
+    this.onReady = onReady;
+    this.onSignal = onSignal;
   }
 
-};
+  onOpen = () => {
+    this.socket.send('init');
+  };
 
-socket.onerror = function (error) {
-  console.log('WebSocket error: ' + error);
-};
+  onMessage = (message) => {
+    switch (message.data) {
+      case 'created':
+        this.onCreate();
+        break;
+      case 'joined':
+        this.onJoin();
+        break;
+      case 'ready':
+        this.onReady();
+        break;
+      default:
+        this.onSignal(JSON.parse(message.data));
+    }
+  };
 
-var peerConn;
-var dataChannel;
+  onCreate = () => {
+    console.log('Room created');
+  }
 
-signalingMessageCallback = (message) => {
-  if (message.type === 'offer') {
-    console.log('Got offer. Sending answer to peer.');
-    peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {}, logError);
-    peerConn.createAnswer(onLocalSessionCreated, logError);
+  onError = function (error) {
+    console.log('WebSocket error: ' + error);
+  };
 
-  } else if (message.type === 'answer') {
-    console.log('Got answer.');
-    peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {}, logError);
-
-  } else if (message.type === 'candidate') {
-    console.log('Got Ice Candidate');
-    console.log(message);
-    peerConn.addIceCandidate(new RTCIceCandidate({
-      sdpMLindIndex: message.sdpMLindIndex,
-      sdpMid: message.sdpMid,
-      candidate: message.candidate,
-    }));
-
+  sendMessage = (message) => {
+    console.log('Client sending message: ', message);
+    this.socket.send(JSON.stringify(message));
   }
 }
 
-createPeerConnection = (isInitiator) => {
-  console.log(`Creating Peer connection as initiator? ${isInitiator}`);
-  peerConn = new RTCPeerConnection();
-  peerConn.onicecandidate = (event) => {
-    console.log(event.candidate);
-    if (event.candidate) {
-      sendMessage({
-        type: 'candidate',
-        label: event.candidate.sdpMLindIndex,
-        sdpMLindIndex: event.candidate.sdpMLindIndex,
-        sdpMid: event.candidate.sdpMid,
-        candidate: event.candidate.candidate
-      });
-    } else {
-      console.log('end of candidates');
+class RTCConnection {
+
+  peerConn;
+  dataChannel;
+  signalingServer;
+
+  message;
+
+  constructor() {
+    this.signalingServer = new SignalingServer(
+      this.joinPeerConnection,
+      this.initiatePeerConnection,
+      this.signalingMessageCallback,
+    )
+  }
+
+  signalingMessageCallback = (message) => {
+    if (message.type === 'offer') {
+      console.log('Got offer. Sending answer to peer.');
+      this.peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {}, this.onError);
+      this.peerConn.createAnswer(this.onLocalSessionCreated, this.onError);
+
+    } else if (message.type === 'answer') {
+      console.log('Got answer.');
+      this.peerConn.setRemoteDescription(new RTCSessionDescription(message), function() {}, this.onError);
+
+    } else if (message.type === 'candidate') {
+      console.log('Got Ice Candidate');
+      console.log(message);
+      this.peerConn.addIceCandidate(new RTCIceCandidate({
+        sdpMLindIndex: message.sdpMLindIndex,
+        sdpMid: message.sdpMid,
+        candidate: message.candidate,
+      }));
     }
   }
 
-  if (isInitiator) {
-    console.log('Creating Data Channel');
-    console.log(peerConn);
-    dataChannel = peerConn.createDataChannel('jam');
-    onDataChannelCreated(dataChannel);
-
-    console.log('Creating an offer');
-    peerConn.createOffer(onLocalSessionCreated, logError);
-  } else {
-    peerConn.ondatachannel = (event) => {
+  joinPeerConnection = () => {
+    console.log(`Joining Peer connection`);
+    this.message = 'joiner';
+    this.buildPeerConnection();
+    this.peerConn.ondatachannel = (event) => {
       console.log(`ondatachannel:`, event.channel);
-      dataChannel = event.channel;
-      onDataChannelCreated(dataChannel);
+      this.dataChannel = event.channel;
+      this.onDataChannelCreated(this.dataChannel);
     };
   }
-}
 
-onDataChannelCreated = (channel) => {
-  console.log(`onDataChannelCreated: ${channel}`);
+  initiatePeerConnection = () => {
+    console.log(`Initiating Peer connection`);
+    this.message = 'initiator';
+    this.buildPeerConnection();
+    this.dataChannel = this.peerConn.createDataChannel('jam');
+    this.onDataChannelCreated(this.dataChannel);
 
-  channel.onopen = () => {
-    console.log('Channel opened!');
-  };
+    console.log('Creating an offer');
+    this.peerConn.createOffer(this.onLocalSessionCreated, this.onError);
+  }
 
-  channel.onclose = () => {
-    console.log('channel closed');
-  };
-}
+  buildPeerConnection = () => {
+    this.peerConn = new RTCPeerConnection();
+    this.peerConn.onicecandidate = (event) => {
+      console.log(event.candidate);
+      if (event.candidate) {
+        this.signalingServer.sendMessage({
+          type: 'candidate',
+          label: event.candidate.sdpMLindIndex,
+          sdpMLindIndex: event.candidate.sdpMLindIndex,
+          sdpMid: event.candidate.sdpMid,
+          candidate: event.candidate.candidate
+        });
+      } else {
+        console.log('end of candidates');
+      }
+    }
+  }
 
-onLocalSessionCreated = (desc) => {
+  onDataChannelCreated = (channel) => {
+    console.log(`onDataChannelCreated: ${channel}`);
 
-  console.log(`local session created: ${desc}`)
-  peerConn.setLocalDescription(desc, () => {
-    console.log(`sending local desc: ${peerConn.localDescription}`)
-    sendMessage(peerConn.localDescription);
-  }, logError);
-}
+    channel.onopen = () => {
+      console.log('Channel opened!');
+    };
 
-function sendMessage(message) {
-  console.log('Client sending message: ', message);
-  socket.send(JSON.stringify(message));
-}
+    channel.onclose = () => {
+      console.log('channel closed');
+    };
 
-logError = (err) => {
-  if (!err) return;
-  if (typeof err === 'string') {
-    console.warn(err);
-  } else {
-    console.warn(err.toString(), err);
+    channel.onmessage = () => {
+      console.log(event.data);
+    }
+  }
+
+  onLocalSessionCreated = (desc) => {
+    console.log(`local session created: ${desc}`)
+    this.peerConn.setLocalDescription(desc, () => {
+      console.log(`sending local desc: ${this.peerConn.localDescription}`)
+      this.signalingServer.sendMessage(this.peerConn.localDescription);
+    }, this.onError);
+  }
+
+  onError = (err) => {
+    if (!err) return;
+    if (typeof err === 'string') {
+      console.warn(err);
+    } else {
+      console.warn(err.toString(), err);
+    }
+  }
+
+  sendMessage = (message) => {
+    this.dataChannel.send(this.message);
   }
 }
+
+conn = new RTCConnection();
+
+setInterval(() => {conn.sendMessage()}, 5000)

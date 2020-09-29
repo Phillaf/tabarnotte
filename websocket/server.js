@@ -14,7 +14,9 @@ init = (connection) => {
     connection.sendUTF('joined');
 
     connections.forEach((destination) => {
-      destination.sendUTF('ready');
+      if (destination !== connection) {
+        destination.sendUTF('ready');
+      }
     })
   }
   connections.push(connection);
